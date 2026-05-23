@@ -21,6 +21,35 @@ jobs:
       with:
           go-version-file: 'go.mod'
 
+    - name: Install system dependencies for GLFW / Fyne
+      run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+          libx11-dev \
+          libxrandr-dev \
+          libxi-dev \
+          libxcursor-dev \
+          libxinerama-dev \
+          libgl1-mesa-dev \
+          build-essential \
+          pkg-config
+
+          - name: Cache Go modules
+            uses: actions/cache@v4
+            with:
+              path: |
+                ~/.cache/go-build
+                ~/go/pkg/mod
+              key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+              restore-keys: |
+                ${{ runner.os }}-go-
+
+          - name: Go mod tidy
+            run: go mod tidy
+
+          - name: Run make (build)
+            run: make all
+        
     - name: Build
       run: go build -v ./...
 
