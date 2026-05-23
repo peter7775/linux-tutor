@@ -21,15 +21,16 @@ jobs:
       with:
           go-version-file: 'go.mod'
 
-    - name: Install system dependencies for GLFW / Fyne
+    - name: Install system dependencies
       run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+        sudo apt-get update
+        sudo apt-get install -y \
           libx11-dev \
           libxrandr-dev \
           libxi-dev \
           libxcursor-dev \
           libxinerama-dev \
+          libxxf86vm-dev \
           libgl1-mesa-dev \
           build-essential \
           pkg-config
