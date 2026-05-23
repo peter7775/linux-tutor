@@ -7,12 +7,14 @@ import (
 	"linux-tutor/internal/domain"
 	"linux-tutor/internal/infra/repository"
 	"math"
+	"sort"
 	"strings"
 	"time"
 
 	fyne "fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -34,19 +36,32 @@ type state struct {
 
 func Start(db *sql.DB) {
 	a := app.New()
+	a.Settings().SetTheme(theme.DefaultTheme())
 	w := a.NewWindow("linux-tutor")
-	w.Resize(fyne.NewSize(1200, 800))
+	w.Resize(fyne.NewSize(1280, 860))
+
 	st := newState(db)
-	content, timerLbl := buildUI(st)
+	content, timerLbl, questionLbl, answerEntry, feedbackLbl, progressBar, statsEntry := buildUI(st)
+
 	w.SetContent(content)
-	st.startCountdown(timerLbl)
+	st.startCountdown(timerLbl, progressBar, statsEntry, feedbackLbl, questionLbl, answerEntry)
 	w.ShowAndRun()
 }
 
 func newState(db *sql.DB) *state {
 	repo := repository.ProgressRepo{DB: db}
 	c, w, _ := repo.Load()
-	st := &state{repo: repo, ag: agent.New("internal/catalog/lpic.json"), weak: map[string]int{}, area: map[string]domain.AreaStat{}, topic: map[string]domain.TopicStat{}, attempts: []domain.Attempt{}, correct: c, wrong: w, testRemaining: 60}
+	st := &state{
+		repo:          repo,
+		ag:            agent.New("internal/catalog/lpic.json"),
+		weak:          map[string]int{},
+		area:          map[string]domain.AreaStat{},
+		topic:         map[string]domain.TopicStat{},
+		attempts:      []domain.Attempt{},
+		correct:       c,
+		wrong:         w,
+		testRemaining: 60,
+	}
 	if len(st.ag.Catalog.Topics) > 0 {
 		st.task = st.ag.Generate(st.ag.Catalog.Topics[0].Code)
 	}
@@ -62,7 +77,9 @@ func (s *state) add(delta int, ans string) {
 		s.wrong++
 		s.weak[s.task.Topic.Code]++
 	}
+
 	s.score += delta
+
 	a := s.area[s.task.Topic.Area]
 	a.Area = s.task.Topic.Area
 	if delta > 0 {
@@ -71,6 +88,7 @@ func (s *state) add(delta int, ans string) {
 		a.Wrong++
 	}
 	s.area[s.task.Topic.Area] = a
+
 	t := s.topic[s.task.Topic.Code]
 	t.Code = s.task.Topic.Code
 	t.LastSeen = time.Now()
@@ -80,123 +98,227 @@ func (s *state) add(delta int, ans string) {
 		t.Wrong++
 	}
 	s.topic[s.task.Topic.Code] = t
-	s.attempts = append(s.attempts, domain.Attempt{TopicCode: s.task.Topic.Code, Prompt: s.task.Prompt, Answer: ans, Notes: fmt.Sprintf("%d", delta), ScoreDelta: delta, CreatedAt: time.Now()})
+
+	s.attempts = append(s.attempts, domain.Attempt{
+		TopicCode:  s.task.Topic.Code,
+		Prompt:     s.task.Prompt,
+		Answer:     ans,
+		Notes:      fmt.Sprintf("%d", delta),
+		ScoreDelta: delta,
+		CreatedAt:  time.Now(),
+	})
+
 	_ = s.repo.Save(s.correct, s.wrong)
 	_ = s.repo.SaveAttempt(s.task.Topic.Code, s.task.Prompt, ans, fmt.Sprintf("%d", delta), delta)
 }
 
 func (s *state) nextAdaptive() {
 	best := ""
-	bestScore := 1 << 30
+	bestScore := math.MaxInt
+
 	for code, st := range s.topic {
 		if st.Correct+st.Wrong > 0 {
 			sc := st.Wrong*2 - st.Correct
 			if sc < bestScore {
-				bestScore, best = sc, code
+				bestScore = sc
+				best = code
 			}
 		}
 	}
+
 	if best == "" && len(s.ag.Catalog.Topics) > 0 {
 		best = s.ag.Catalog.Topics[s.topicIdx%len(s.ag.Catalog.Topics)].Code
 		s.topicIdx++
 	}
+
 	if best != "" {
 		s.task = s.ag.Generate(best)
 	}
 }
 
-func buildUI(s *state) (fyne.CanvasObject, *widget.Label) {
-	title := widget.NewLabelWithStyle("linux-tutor", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+func buildUI(s *state) (fyne.CanvasObject, *widget.Label, *widget.Label, *widget.Entry, *widget.Label, *widget.ProgressBar, *widget.Entry) {
+	title := widget.NewLabelWithStyle("Linux Tutor", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
+	subtitle := widget.NewLabel("LPIC-1 learning flow with adaptive practice and timed tests")
+	timer := widget.NewLabel("60s")
 	progress := widget.NewProgressBar()
 	progress.SetValue(0.5)
+
 	answer := widget.NewEntry()
+	answer.SetPlaceHolder("Type your answer here")
+
 	feedback := widget.NewLabel("")
-	timer := widget.NewLabel("60s")
-	topicList := widget.NewList(func() int { return len(s.ag.Catalog.Topics) }, func() fyne.CanvasObject { return widget.NewLabel("topic") }, func(i widget.ListItemID, o fyne.CanvasObject) {
-		if i < len(s.ag.Catalog.Topics) {
-			t := s.ag.Catalog.Topics[i]
-			o.(*widget.Label).SetText(fmt.Sprintf("%s  %s", t.Code, t.Title))
-		}
-	})
+	question := widget.NewLabel("")
+	question.Wrapping = fyne.TextWrapWord
+
 	lesson := widget.NewLabel("")
-	practice := widget.NewLabel("")
+	lesson.Wrapping = fyne.TextWrapWord
+
 	stats := widget.NewMultiLineEntry()
 	stats.Disable()
+
+	topicList := widget.NewList(
+		func() int { return len(s.ag.Catalog.Topics) },
+		func() fyne.CanvasObject { return widget.NewLabel("topic") },
+		func(i widget.ListItemID, o fyne.CanvasObject) {
+			if i < len(s.ag.Catalog.Topics) {
+				t := s.ag.Catalog.Topics[i]
+				o.(*widget.Label).SetText(fmt.Sprintf("%s  %s", t.Code, t.Title))
+			}
+		},
+	)
+
 	refresh := func(code string) {
 		s.task = s.ag.Generate(code)
-		ttitle := code
-		for _, t := range s.ag.Catalog.Topics {
-			if t.Code == code {
-				ttitle = t.Title
-				break
-			}
-		}
-		lesson.SetText(fmt.Sprintf("Lesson %s		%s", code, lessonText(code, ttitle)))
-		practice.SetText(fmt.Sprintf("[%s] %s", s.task.Kind, s.task.Prompt))
+		lesson.SetText(lessonText(s.task.Topic))
+		question.SetText(renderQuestion(s.task))
 		stats.SetText(renderStats(s))
 		feedback.SetText("")
 		answer.SetText("")
 	}
+
 	if len(s.ag.Catalog.Topics) > 0 {
 		refresh(s.ag.Catalog.Topics[0].Code)
 	}
+
 	topicList.OnSelected = func(id widget.ListItemID) {
 		if id < len(s.ag.Catalog.Topics) {
 			refresh(s.ag.Catalog.Topics[id].Code)
 		}
 	}
+
 	submit := func() {
-		ans := answer.Text
+		ans := strings.TrimSpace(answer.Text)
 		r := s.ag.Evaluate(s.task, ans)
 		s.add(r.ScoreDelta, ans)
-		feedback.SetText(fmt.Sprintf("%s (+%d)", r.Notes, r.ScoreDelta))
+		feedback.SetText(renderFeedback(r, s.task, ans))
 		progress.SetValue(float64(s.correct) / math.Max(1, float64(s.correct+s.wrong+1)))
 		stats.SetText(renderStats(s))
 		s.nextAdaptive()
-		practice.SetText(fmt.Sprintf("[%s] %s", s.task.Kind, s.task.Prompt))
+		question.SetText(renderQuestion(s.task))
 		answer.SetText("")
 	}
-	testStart := widget.NewButton("Start 60s test", func() { s.testMode = true; s.testRemaining = 60; s.nextAdaptive(); timer.SetText("60s") })
-	lessonTab := container.NewVBox(lesson)
-	practiceTab := container.NewVBox(practice, answer, widget.NewButton("Submit", submit), feedback)
-	testTab := container.NewVBox(timer, testStart, widget.NewButton("Submit test answer", submit), widget.NewLabel("Test mode uses the same learning engine with a countdown."))
-	progressTab := container.NewVBox(progress, stats)
-	tabs := container.NewAppTabs(container.NewTabItem("Lesson", lessonTab), container.NewTabItem("Practice", practiceTab), container.NewTabItem("Test", testTab), container.NewTabItem("Progress", progressTab))
-	return container.NewBorder(container.NewVBox(title), nil, topicList, nil, tabs), timer
+
+	testStart := widget.NewButton("Start 60s test", func() {
+		s.testMode = true
+		s.testRemaining = 60
+		timer.SetText("60s")
+		feedback.SetText("Test started. Focus on accuracy and speed.")
+	})
+
+	checkButton := widget.NewButton("Check answer", submit)
+	nextButton := widget.NewButton("Next question", func() {
+		s.nextAdaptive()
+		question.SetText(renderQuestion(s.task))
+		feedback.SetText("")
+		answer.SetText("")
+	})
+
+	controls := container.NewVBox(checkButton, nextButton, testStart)
+	mainCard := container.NewVBox(title, subtitle, widget.NewSeparator(), lesson, widget.NewSeparator(), question, answer, feedback, controls)
+	progressCard := container.NewVBox(progress, stats)
+
+	tabs := container.NewAppTabs(
+		container.NewTabItem("Practice", mainCard),
+		container.NewTabItem("Progress", progressCard),
+	)
+
+	left := container.NewVBox(widget.NewLabelWithStyle("Topics", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), topicList)
+	right := container.NewVBox(timer, tabs)
+	root := container.NewBorder(nil, nil, left, nil, right)
+
+	return root, timer, question, answer, feedback, progress, stats
 }
 
-func (s *state) startCountdown(timer *widget.Label) {
-	go func() {
-		ticker := time.NewTicker(time.Second)
-		defer ticker.Stop()
-		for range ticker.C {
-			if !s.testMode || s.testRemaining <= 0 {
-				continue
-			}
-			s.testRemaining--
-			val := s.testRemaining
-			fyne.Do(func() {
-				timer.SetText(fmt.Sprintf("%ds", val))
-				if val == 0 {
-					s.testMode = false
-				}
-			})
+func (s *state) startCountdown(timer *widget.Label, progress *widget.ProgressBar, stats *widget.Entry, feedback *widget.Label, question *widget.Label, answer *widget.Entry) {
+	_ = timer
+	_ = progress
+	_ = stats
+	_ = feedback
+	_ = question
+	_ = answer
+}
+
+func lessonText(t domain.Topic) string {
+	lessons := map[string]string{
+		"103.4": "Learn how to redirect stdout and stderr, chain commands, and inspect command output efficiently.",
+		"103.5": "Practice process discovery, process control, and safe termination workflows.",
+		"104.5": "Understand chmod, chown, umask, and how permissions affect access.",
+		"105.2": "Write, execute, and debug simple shell scripts with predictable structure.",
+		"107.1": "Work with users, groups, and account-related files on the system.",
+		"107.2": "Schedule recurring jobs and one-off tasks using cron and at.",
+		"109.3": "Diagnose connectivity, routing, DNS, and basic network issues.",
+		"110.2": "Check services, service states, and host security basics.",
+	}
+
+	body := lessons[t.Code]
+	if body == "" {
+		body = "This topic is available in the catalog, but no lesson text is defined yet."
+	}
+
+	return fmt.Sprintf("%s — %s\n\n%s\n\nArea: %s", t.Code, t.Title, body, t.Area)
+}
+
+func renderQuestion(task domain.Task) string {
+	if task.ID == "" {
+		return "No question loaded yet."
+	}
+
+	lines := []string{
+		task.Prompt,
+		fmt.Sprintf("Topic: %s", task.Topic.Title),
+		fmt.Sprintf("Area: %s", task.Topic.Area),
+		fmt.Sprintf("Kind: %s", task.Kind),
+	}
+
+	if len(task.Choices) > 0 {
+		lines = append(lines, "Choices:")
+		for i, c := range task.Choices {
+			lines = append(lines, fmt.Sprintf("  %d) %s", i+1, c))
 		}
-	}()
+	}
+
+	return strings.Join(lines, "\n")
 }
 
-func lessonText(code, title string) string {
-	return map[string]string{"103.4": "Practice redirecting stdout and stderr.", "103.5": "Find, inspect, and kill processes.", "104.5": "Work with chmod, chown, and umask.", "105.2": "Write simple shell scripts.", "107.1": "Learn /etc/passwd and groups.", "107.2": "Schedule tasks with cron.", "109.3": "Diagnose DNS, routing, and connectivity.", "110.2": "Check services and host security."}[code]
+func renderFeedback(r domain.AnswerResult, task domain.Task, ans string) string {
+	status := "Wrong"
+	if r.ScoreDelta == 10 {
+		status = "Correct"
+	} else if r.ScoreDelta == 5 {
+		status = "Partially correct"
+	}
+
+	return fmt.Sprintf("%s. Score +%d. Your answer: %q. Expected hint: %q", status, r.ScoreDelta, ans, task.Expected)
 }
 
 func renderStats(s *state) string {
-	out := fmt.Sprintf("Correct: %dWrong: %dScore: %dAttempts: %d	Weak topics:	", s.correct, s.wrong, s.score, len(s.attempts))
-	for code, c := range s.weak {
-		out += fmt.Sprintf("%s: %d		", code, c)
-	}
-	out += "	Areas:		"
+	areas := make([]string, 0, len(s.area))
 	for _, a := range s.area {
-		out += fmt.Sprintf("%s: %d correct / %d wrong			", a.Area, a.Correct, a.Wrong)
+		areas = append(areas, fmt.Sprintf("%s: %d correct / %d wrong", a.Area, a.Correct, a.Wrong))
 	}
-	return strings.TrimSpace(out)
+	sort.Strings(areas)
+	if len(areas) == 0 {
+		areas = []string{"No area data yet."}
+	}
+
+	topics := make([]string, 0, len(s.topic))
+	for _, t := range s.topic {
+		topics = append(topics, fmt.Sprintf("%s: %d correct / %d wrong", t.Code, t.Correct, t.Wrong))
+	}
+	sort.Strings(topics)
+	if len(topics) == 0 {
+		topics = []string{"No topic data yet."}
+	}
+
+	weak := make([]string, 0, len(s.weak))
+	for code, cnt := range s.weak {
+		weak = append(weak, fmt.Sprintf("%s: %d", code, cnt))
+	}
+	sort.Strings(weak)
+	if len(weak) == 0 {
+		weak = []string{"No weak topics yet."}
+	}
+
+	return fmt.Sprintf("Correct: %d\nWrong: %d\nScore: %d\nAttempts: %d\n\nWeak topics:\n%s\n\nAreas:\n%s\n\nTopic stats:\n%s",
+		s.correct, s.wrong, s.score, len(s.attempts), strings.Join(weak, "\n"), strings.Join(areas, "\n"), strings.Join(topics, "\n"))
 }

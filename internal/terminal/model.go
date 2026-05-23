@@ -204,15 +204,15 @@ func (m *Model) submit() {
 func (m Model) View() string {
 	switch m.screen {
 	case screenDashboard:
-		return "linux-tutor		> Lesson		Practice		Test		Progress		Quit	Progress: " + m.bar.View()
+		return "linux-tutor> Lesson  Practice  Test  Progress  Quit   Progress: " + m.bar.View()
 	case screenLesson:
-		return "Lesson		" + m.lessonView() + "		Enter next, q back"
+		return "Lesson" + m.lessonView() + "Enter next, q back"
 	case screenPractice:
-		return "Practice		" + m.practiceView() + "		> " + m.input + "		Enter submit, q back"
+		return "Practice" + m.practiceView() + "> " + m.input + "Enter submit, q back"
 	case screenTest:
-		return fmt.Sprintf("Test (%ds left)		%s		> %s		Enter submit, q back", m.testRemaining, m.practiceView(), m.input)
+		return fmt.Sprintf("Test (%ds left)%s> %sEnter submit, q back", m.testRemaining, m.practiceView(), m.input)
 	case screenProgress:
-		return "Progress		" + m.progressView() + "		q back"
+		return "Progress" + m.progressView() + "q back"
 	default:
 		return ""
 	}
@@ -224,7 +224,7 @@ func (m Model) lessonView() string {
 	}
 	t := m.ag.Catalog.Topics[(m.topicIdx-1+len(m.ag.Catalog.Topics))%len(m.ag.Catalog.Topics)]
 	lessons := map[string]string{"103.4": "Practice redirecting stdout and stderr.", "103.5": "Find, inspect, and kill processes.", "104.5": "Work with chmod, chown, and umask.", "105.2": "Write simple shell scripts.", "107.1": "Learn /etc/passwd and groups.", "107.2": "Schedule tasks with cron.", "109.3": "Diagnose DNS, routing, and connectivity.", "110.2": "Check services and host security."}
-	return fmt.Sprintf("%s	%s	%s	Task preview: %s", t.Code, t.Title, lessons[t.Code], m.ag.Generate(t.Code).Prompt)
+	return fmt.Sprintf("%s%s%sTask preview: %s", t.Code, t.Title, lessons[t.Code], m.ag.Generate(t.Code).Prompt)
 }
 
 func (m Model) practiceView() string {
@@ -235,13 +235,13 @@ func (m Model) practiceView() string {
 }
 
 func (m Model) progressView() string {
-	out := fmt.Sprintf("Correct: %d		Wrong: %d		Score: %d		Attempts: %d		Weak topics:		", m.correct, m.wrong, m.score, len(m.attempts))
+	out := fmt.Sprintf("Correct: %dWrong: %dScore: %dAttempts: %dWeak topics:", m.correct, m.wrong, m.score, len(m.attempts))
 	for code, c := range m.weak {
 		out += fmt.Sprintf("%s: %d", code, c)
 	}
-	out += "		Areas:		"
+	out += "Areas:"
 	for _, a := range m.area {
-		out += fmt.Sprintf("%s: %d correct / %d wrong ", a.Area, a.Correct, a.Wrong)
+		out += fmt.Sprintf("%s: %d correct / %d wrong", a.Area, a.Correct, a.Wrong)
 	}
 	return out
 }
