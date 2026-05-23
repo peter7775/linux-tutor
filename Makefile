@@ -25,7 +25,7 @@ fmt:
 fmt-check:
 	@test -z "$$(gofmt -l $(GO_FILES))"
 
-build: fmt
+build: fmt tidy
 	$(GO) build -o $(BIN) $(MAIN_PKG)
 
 test: fmt
