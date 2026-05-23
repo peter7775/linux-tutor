@@ -1,7 +1,5 @@
 package main
 
-import "lpi-tutor/internal/app"
+import "linux-tutor/internal/app"
 
-func main() {
-	app.Run()
-}
+func main() { app.Run() }

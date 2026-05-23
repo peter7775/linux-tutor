@@ -1,1 +1,1 @@
-# MVP Spec
+# linux-tutor MVP
