@@ -11,7 +11,7 @@ GO_FILES := $(shell find . -type f -name '*.go' -not -path './bin/*' -not -path 
 
 .PHONY: all build test lint go-sec fmt fmt-check tidy clean
 
-all: build
+all: fmt lint go-sec test build
 
 $(BIN_DIR):
 	@mkdir -p $(BIN_DIR)
