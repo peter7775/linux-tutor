@@ -5,8 +5,11 @@ import (
 	"linux-tutor/internal/agent"
 	"linux-tutor/internal/domain"
 	"linux-tutor/internal/infra/repository"
+	"math"
 	"strings"
+	"time"
 
+	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -17,9 +20,29 @@ const (
 	screenProgress
 )
 
-type Model struct { screen screen; cursor int; input string; output []string; repo repository.ProgressRepo; agent agent.Agent; task domain.Task; correct int; wrong int; score int; weak map[string]int }
+type Model struct {
+	screen screen
+	cursor int
+	input string
+	output []string
+	repo repository.ProgressRepo
+	agent agent.Agent
+	task domain.Task
+	correct int
+	wrong int
+	score int
+	weak map[string]int
+	area map[string]domain.AreaStat
+	topic map[string]domain.TopicStat
+	bar progress.Model
+}
 
-func NewModel(repo repository.ProgressRepo, ag agent.Agent) Model { c, w, _ := repo.Load(); return Model{repo: repo, agent: ag, task: ag.Generate("103.4"), correct: c, wrong: w, output: []string{"Mini shell připraven.", "Použij: task, answer, next, type, topic, help"}, weak: map[string]int{}} }
+func NewModel(repo repository.ProgressRepo, ag agent.Agent) Model {
+	c, w, _ := repo.Load()
+	b := progress.New(progress.WithDefaultGradient())
+	return Model{repo: repo, agent: ag, task: ag.Generate("103.4"), correct: c, wrong: w, output: []string{"Mini shell ready.", "Use: task, answer, next, type, topic, help"}, weak: map[string]int{}, area: map[string]domain.AreaStat{}, topic: map[string]domain.TopicStat{}, bar: b}
+}
+
 func (m Model) Init() tea.Cmd { return nil }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -37,21 +60,50 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *Model) addWeak(code string) { m.weak[code]++ }
+func (m *Model) bumpArea(area string, ok bool) {
+	s := m.area[area]
+	s.Area = area
+	if ok { s.Correct++ } else { s.Wrong++ }
+	m.area[area] = s
+}
+
+func (m *Model) bumpTopic(code string, ok bool) {
+	s := m.topic[code]
+	s.Code = code
+	s.LastSeen = time.Now()
+	if ok { s.Correct++ } else { s.Wrong++ }
+	m.topic[code] = s
+}
+
+func (m *Model) pickAdaptive() domain.Topic {
+	bestCode := ""
+	bestScore := math.MaxInt
+	for code, s := range m.topic {
+		sum := s.Correct + s.Wrong
+		if sum == 0 { continue }
+		score := s.Wrong*2 - s.Correct
+		if score < bestScore { bestScore, bestCode = score, code }
+	}
+	if bestCode != "" {
+		for _, t := range m.agent.Catalog.Topics { if t.Code == bestCode { return t } }
+	}
+	bestWeak := ""
+	maxWeak := -1
+	for code, cnt := range m.weak { if cnt > maxWeak { bestWeak, maxWeak = code, cnt } }
+	if bestWeak != "" { for _, t := range m.agent.Catalog.Topics { if t.Code == bestWeak { return t } } }
+	if n, err := m.agent.Next(m.task.Topic.Code); err == nil { return n }
+	return m.task.Topic
+}
 
 func (m *Model) nextAdaptive() {
-	best := ""
-	bestCount := 0
-	for code, cnt := range m.weak { if cnt > bestCount { best, bestCount = code, cnt } }
-	if best != "" { m.task = m.agent.Generate(best); m.output = append(m.output, "Adaptivně zvoleno slabé téma: "+best); return }
-	n, err := m.agent.Next(m.task.Topic.Code)
-	if err != nil { m.output = append(m.output, err.Error()); return }
-	m.task = m.agent.Generate(n.Code)
-	m.output = append(m.output, "Nová úloha: "+m.task.Prompt)
+	t := m.pickAdaptive()
+	m.task = m.agent.Generate(t.Code)
+	m.output = append(m.output, "Adaptive topic: "+t.Code+" - "+t.Area)
 }
 
 func (m *Model) runShell() {
-	cmd := strings.TrimSpace(m.input); m.output = append(m.output, "> "+cmd)
+	cmd := strings.TrimSpace(m.input)
+	m.output = append(m.output, "> "+cmd)
 	switch {
 	case cmd == "help": m.output = append(m.output, "Příkazy: help, task, type, topic, next, answer <...>, ls, pwd, whoami, clear, exit")
 	case cmd == "task": m.output = append(m.output, fmt.Sprintf("[%s] %s", m.task.Kind, m.task.Prompt)); if len(m.task.Choices) > 0 { m.output = append(m.output, "Možnosti: "+strings.Join(m.task.Choices, ", ")) }; m.output = append(m.output, "Hint: "+m.task.Hint)
@@ -66,22 +118,44 @@ func (m *Model) runShell() {
 	case strings.HasPrefix(cmd, "answer "):
 		ans := strings.TrimSpace(strings.TrimPrefix(cmd, "answer"))
 		r := m.agent.Evaluate(m.task, ans)
-		m.output = append(m.output, fmt.Sprintf("%s (+%d)", r.Notes, r.ScoreDelta))
+		if r.ScoreDelta == 10 { m.correct++ } else if r.ScoreDelta == 5 { m.weak[m.task.Topic.Code]++ } else { m.wrong++; m.weak[m.task.Topic.Code]++ }
 		m.score += r.ScoreDelta
-		if r.ScoreDelta == 10 { m.correct++ } else if r.ScoreDelta == 5 { m.addWeak(m.task.Topic.Code) } else { m.wrong++; m.addWeak(m.task.Topic.Code) }
+		m.bumpArea(m.task.Topic.Area, r.ScoreDelta > 0)
+		m.bumpTopic(m.task.Topic.Code, r.ScoreDelta > 0)
+		m.output = append(m.output, fmt.Sprintf("%s (+%d)", r.Notes, r.ScoreDelta))
 		_ = m.repo.Save(m.correct, m.wrong)
-	default: if cmd != "" { m.output = append(m.output, "Nepodporovaný příkaz v mini shellu."); m.wrong++; m.score-- }
+	default:
+		if cmd != "" { m.output = append(m.output, "Nepodporovaný příkaz v mini shellu."); m.wrong++; m.score-- }
 	}
-	_ = m.repo.Save(m.correct, m.wrong); m.input = ""
+	_ = m.repo.Save(m.correct, m.wrong)
+	m.input = ""
+}
+
+func (m Model) areaLines() []string {
+	areas := []string{}
+	for _, a := range m.area { areas = append(areas, fmt.Sprintf("- %s: %d correct, %d wrong", a.Area, a.Correct, a.Wrong)) }
+	if len(areas) == 0 { areas = []string{"- no data yet"} }
+	return areas
+}
+
+func (m Model) topicLines() []string {
+	lines := []string{}
+	for code, t := range m.topic { lines = append(lines, fmt.Sprintf("- %s: %d correct, %d wrong", code, t.Correct, t.Wrong)) }
+	if len(lines) == 0 { lines = []string{"- no data yet"} }
+	return lines
 }
 
 func (m Model) View() string {
 	switch m.screen {
 	case screenDashboard:
-		items := []string{"Otevřít mini shell", "Přehled pokroku", "Konec"}; out := "linux-tutor
+		items := []string{"Otevřít mini shell", "Přehled pokroku", "Konec"}
+		out := "linux-tutor
 
 "; for i, item := range items { c := " "; if m.cursor == i { c = ">" }; out += fmt.Sprintf("%s %s
-", c, item) }; return out + "
+", c, item) }
+		return out + fmt.Sprintf("
+Progress: %s
+", m.bar.ViewAs(float64(m.correct)/math.Max(1, float64(m.correct+m.wrong+1)))) + "
 Pohyb: šipky, Enter, q"
 	case screenShell:
 		return "Mini shell
@@ -93,14 +167,21 @@ Pohyb: šipky, Enter, q"
 
 Enter spustí příkaz, q vrátí zpět"
 	case screenProgress:
-		return fmt.Sprintf("Pokrok
+		return "Pokrok
 
-Správně: %d
-Špatně: %d
-Skóre: %d
-Slabiny: %d témat
+Správně: " + fmt.Sprint(m.correct) + "
+Špatně: " + fmt.Sprint(m.wrong) + "
+Skóre: " + fmt.Sprint(m.score) + "
 
-q pro návrat", m.correct, m.wrong, m.score, len(m.weak))
+LPIC areas:
+" + strings.Join(m.areaLines(), "
+") + "
+
+Weak topics:
+" + strings.Join(m.topicLines(), "
+") + "
+
+q pro návrat"
 	default:
 		return ""
 	}
