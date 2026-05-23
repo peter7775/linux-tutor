@@ -1,1 +1,1 @@
-# linux-tutor SQLite MVP
+# linux-tutor mini shell

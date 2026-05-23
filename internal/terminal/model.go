@@ -11,23 +11,23 @@ import (
 type screen int
 const (
 	screenDashboard screen = iota
-	screenQuiz
+	screenShell
 	screenProgress
 )
 
 type Model struct {
-	screen   screen
-	cursor   int
-	input    string
-	feedback string
-	repo     repository.ProgressRepo
-	correct  int
-	wrong    int
+	screen screen
+	cursor int
+	input string
+	output []string
+	repo repository.ProgressRepo
+	correct int
+	wrong int
 }
 
 func NewModel(repo repository.ProgressRepo) Model {
-	c, w, _ := repo.Load()
-	return Model{repo: repo, screen: screenDashboard, cursor: 0, correct: c, wrong: w}
+	c,w,_ := repo.Load()
+	return Model{repo: repo, correct: c, wrong: w, output: []string{"Mini shell připraven.", "Zkuste: help, ls, pwd, whoami, clear, exit"}}
 }
 
 func (m Model) Init() tea.Cmd { return nil }
@@ -45,42 +45,65 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.screen == screenDashboard && m.cursor < 2 { m.cursor++ }
 		case "enter":
 			if m.screen == screenDashboard {
-				switch m.cursor { case 0: m.screen = screenQuiz; case 1: m.screen = screenProgress; case 2: _ = m.repo.Save(m.correct,m.wrong); return m, tea.Quit }
-			} else if m.screen == screenQuiz {
-				if strings.TrimSpace(strings.ToLower(m.input)) == "ps" { m.feedback = "Správně."; m.correct++ } else { m.feedback = "Špatně. Správně je: ps"; m.wrong++ }
-				_ = m.repo.Save(m.correct, m.wrong)
-				m.input = ""
+				switch m.cursor { case 0: m.screen = screenShell; case 1: m.screen = screenProgress; case 2: _ = m.repo.Save(m.correct, m.wrong); return m, tea.Quit }
+			} else if m.screen == screenShell {
+				m.runShell()
 			}
 		case "backspace":
-			if m.screen == screenQuiz && len(m.input) > 0 { m.input = m.input[:len(m.input)-1] }
+			if m.screen == screenShell && len(m.input) > 0 { m.input = m.input[:len(m.input)-1] }
 		default:
-			if m.screen == screenQuiz && len(msg.String()) == 1 { m.input += msg.String() }
+			if m.screen == screenShell && len(msg.String()) == 1 { m.input += msg.String() }
 		}
 	}
 	return m, nil
 }
 
+func (m *Model) runShell() {
+	cmd := strings.TrimSpace(m.input)
+	m.output = append(m.output, "> "+cmd)
+	switch cmd {
+	case "help":
+		m.output = append(m.output, "Příkazy: help, ls, pwd, whoami, clear, exit")
+	case "ls":
+		m.output = append(m.output, "docs  assets  internal  cmd")
+		m.correct++
+	case "pwd":
+		m.output = append(m.output, "/home/linux-tutor")
+		m.correct++
+	case "whoami":
+		m.output = append(m.output, "student")
+		m.correct++
+	case "clear":
+		m.output = []string{}
+	case "exit":
+		m.screen = screenDashboard
+	default:
+		if cmd != "" { m.output = append(m.output, "Nepodporovaný příkaz v mini shellu."); m.wrong++ }
+	}
+	_ = m.repo.Save(m.correct, m.wrong)
+	m.input = ""
+}
+
 func (m Model) View() string {
 	switch m.screen {
 	case screenDashboard:
-		items := []string{"Spustit kvíz", "Přehled pokroku", "Konec"}
+		items := []string{"Otevřít mini shell", "Přehled pokroku", "Konec"}
 		out := "linux-tutor
 
 "
-		for i, item := range items {
-			cursor := " "
-			if m.cursor == i { cursor = ">" }
-			out += fmt.Sprintf("%s %s
-", cursor, item)
-		}
+		for i, item := range items { c := " "; if m.cursor == i { c = ">" }; out += fmt.Sprintf("%s %s
+", c, item) }
 		return out + "
 Pohyb: šipky, Enter, q"
-	case screenQuiz:
-		return fmt.Sprintf("Otázka: Jaký příkaz zobrazí běžící procesy?
+	case screenShell:
+		return "Mini shell
 
-Odpověď: %s
+" + strings.Join(m.output, "
+") + "
 
-%s", m.input, m.feedback)
+> " + m.input + "
+
+Enter spustí příkaz, q vrátí zpět"
 	case screenProgress:
 		return fmt.Sprintf("Pokrok
 

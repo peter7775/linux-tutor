@@ -13,17 +13,8 @@ func Open(path string) (*sql.DB, error) {
 }
 
 func Migrate(db *sql.DB) error {
-	_, err := db.Exec(`
-	CREATE TABLE IF NOT EXISTS progress (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		correct INTEGER NOT NULL DEFAULT 0,
-		wrong INTEGER NOT NULL DEFAULT 0
-	);`)
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS progress (id INTEGER PRIMARY KEY CHECK (id=1), correct INTEGER NOT NULL DEFAULT 0, wrong INTEGER NOT NULL DEFAULT 0);`)
 	if err != nil { return err }
-	var n int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM progress`).Scan(&n); err != nil { return err }
-	if n == 0 {
-		_, err = db.Exec(`INSERT INTO progress(correct, wrong) VALUES (0,0)`)
-	}
+	_, err = db.Exec(`INSERT OR IGNORE INTO progress(id, correct, wrong) VALUES (1,0,0);`)
 	return err
 }

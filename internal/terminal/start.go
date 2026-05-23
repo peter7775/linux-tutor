@@ -6,9 +6,4 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func Start(db *sql.DB) error {
-	repo := repository.ProgressRepo{DB: db}
-	p := tea.NewProgram(NewModel(repo))
-	_, err := p.Run()
-	return err
-}
+func Start(db *sql.DB) error { p := tea.NewProgram(NewModel(repository.ProgressRepo{DB: db})); _, err := p.Run(); return err }
