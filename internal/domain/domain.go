@@ -8,3 +8,4 @@ type Task struct { ID string; Topic Topic; Kind string; Prompt string; Expected 
 type AnswerResult struct { Exact int; Partial int; Wrong int; Notes string; ScoreDelta int }
 type TopicStat struct { Code string; Correct int; Wrong int; LastSeen time.Time }
 type AreaStat struct { Area string; Correct int; Wrong int }
+type Attempt struct { TopicCode, Prompt, Answer, Notes string; ScoreDelta int; CreatedAt time.Time }
