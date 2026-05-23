@@ -3,10 +3,13 @@ MAIN_PKG := ./cmd/app
 BIN_DIR := bin
 BIN := $(BIN_DIR)/$(APP_NAME)
 
+GO := go
 GOLANGCI_LINT ?= golangci-lint
 GOSEC ?= gosec
 
-.PHONY: all build test lint go-sec clean tidy
+GO_FILES := $(shell find . -type f -name '*.go' -not -path './bin/*' -not -path './vendor/*')
+
+.PHONY: all build test lint go-sec fmt fmt-check tidy clean
 
 all: build
 
@@ -14,13 +17,19 @@ $(BIN_DIR):
 	@mkdir -p $(BIN_DIR)
 
 tidy:
-	go mod tidy
+	$(GO) mod tidy
 
-build: $(BIN_DIR) tidy
-	go build -o $(BIN) $(MAIN_PKG)
+fmt:
+	gofmt -w $(GO_FILES)
 
-test:
-	go test ./...
+fmt-check:
+	@test -z "$$(gofmt -l $(GO_FILES))"
+
+build: fmt
+	$(GO) build -o $(BIN) $(MAIN_PKG)
+
+test: fmt
+	$(GO) test ./...
 
 lint:
 	$(GOLANGCI_LINT) run ./...
