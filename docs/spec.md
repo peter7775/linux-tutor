@@ -1,1 +1,1 @@
-# linux-tutor rubric
+# linux-tutor adaptive scoring
