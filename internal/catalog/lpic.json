@@ -1,12 +1,10 @@
 {
   "topics": [
-    {"code":"101.1","title":"Determine and configure hardware settings","area":"System Architecture"},
     {"code":"103.4","title":"Use streams, pipes and redirects","area":"GNU and Unix Commands"},
     {"code":"103.5","title":"Create, monitor and kill processes","area":"GNU and Unix Commands"},
     {"code":"104.5","title":"Manage file permissions and ownership","area":"Devices, Linux Filesystems, FHS"},
-    {"code":"105.1","title":"Customize and use the shell environment","area":"Shells and Shell Scripting"},
+    {"code":"105.2","title":"Customize or write simple scripts","area":"Shells and Shell Scripting"},
     {"code":"107.1","title":"Manage user and group accounts","area":"Administrative Tasks"},
-    {"code":"109.2","title":"Persistent network configuration","area":"Networking Fundamentals"},
-    {"code":"110.2","title":"Set up host security","area":"Security"}
+    {"code":"109.3","title":"Basic network troubleshooting","area":"Networking Fundamentals"}
   ]
 }

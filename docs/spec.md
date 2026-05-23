@@ -1,1 +1,1 @@
-# linux-tutor integrated catalog and agent
+# linux-tutor multi-type tasks
