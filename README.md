@@ -1,118 +1,132 @@
 # linux-tutor
 
-An interactive Linux learning app written in Go.  
-It combines a Bubble Tea terminal UI, a small built-in training shell, SQLite progress tracking, and an LPIC-aligned AI tutor that generates and grades practice tasks.
+linux-tutor is an interactive Linux learning app written in Go. It combines a terminal UI, a graphical UI, an LPIC-style question engine, and progress tracking in SQLite.
 
-## What it does
+## What it is
 
-linux-tutor helps users practice Linux command-line skills in a structured way.  
-It is designed around LPIC-style topics such as GNU/Unix commands, files and permissions, shell scripting, administration, networking, and security [web:6][web:1].
+The app helps users practice Linux command-line skills in a structured way. It is built around LPIC-inspired topics such as GNU and Unix commands, process management, permissions, shell scripting, user administration, networking, and host security.
 
-### Core features
+## Features
 
 - Terminal UI built with Bubble Tea.
-- Built-in mini shell for guided practice.
-- Multiple task types: single command, multi-command, fill-in-the-blank, multiple choice, ordering, and scenario-based tasks.
-- LPIC topic catalog in JSON/YAML format.
-- AI agent that generates tasks and evaluates answers.
-- SQLite persistence for progress tracking.
-- Adaptive learning that focuses on weak topics.
+- Graphical UI built with Fyne.
+- Adaptive question flow based on weak topics.
+- LPIC topic catalog stored in JSON.
+- Question generation and answer evaluation in the agent layer.
+- SQLite-backed progress tracking.
+- Separate lesson, question, and feedback views.
 
-## Why this project exists
+## Architecture
 
-Many Linux learning tools focus only on quizzes or only on command references.  
-linux-tutor combines both: it lets learners practice, make mistakes safely, and track progress over time in one interactive workflow.
+The project is organized by responsibility:
+
+- `cmd/` — entry points for each executable.
+  - `cmd/app/` — shared or default launcher.
+  - `cmd/tui/` — terminal application entry point.
+  - `cmd/gui/` — graphical application entry point.
+- `internal/app/` — application wiring, configuration, and runtime setup.
+- `internal/agent/` — question generation, evaluation rules, prompts, guidelines, and tutoring logic.
+- `internal/catalog/` — LPIC topic catalog data.
+- `internal/domain/` — core domain types such as topics, tasks, sessions, answers, and attempts.
+- `internal/infra/` — persistence, repositories, and other infrastructure code.
+- `internal/terminal/` — TUI model, screens, widgets, mini shell, and terminal flow.
+- `internal/gui/` — GUI application, theme, and desktop flow.
+- `internal/usecase/` — application use cases such as starting lessons, generating questions, evaluating progress, and recommending next topics.
+
+This structure keeps UI concerns, business logic, and infrastructure separate, which makes the project easier to extend and test.
+
+## How it works
+
+A typical learning flow looks like this:
+
+1. The app loads the LPIC catalog.
+2. The agent generates a question for a selected topic.
+3. The user answers in the terminal or GUI.
+4. The answer is evaluated and scored.
+5. Progress is saved to SQLite.
+6. The app recommends the next topic, often favoring weaker areas.
+
+## Learning model
+
+The learning model is designed around topic-level practice rather than random quizzes. Each topic can generate different task types, including:
+
+- single command.
+- multi-command.
+- fill in the blank.
+- multiple choice.
+- ordering.
+- scenario-based tasks.
+
+The app keeps track of correct and wrong answers so it can focus on weaker topics over time.
 
 ## Getting started
 
 ### Requirements
 
-- Go 1.23 or newer.
-- SQLite support through the included pure-Go driver.
-- A terminal that supports keyboard interaction.
+- Go 1.22 or newer.
+- SQLite support.
+- A terminal for the TUI version.
+- A desktop environment for the GUI version.
 
-### Run locally
+### Run the app
 
 ```bash
-git clone https://github.com/your-username/linux-tutor.git
-cd linux-tutor
 go run ./cmd/app
 ```
 
-### Build
+### Build the binary
 
 ```bash
-go build -o linux-tutor ./cmd/app
+go build -o bin/linux-tutor ./cmd/app
 ```
 
-### Basic usage
+### Run the TUI
 
-When the app starts, use the arrow keys to navigate the dashboard.
-
-Inside the mini shell, try:
-
-```text
-help
-task
-type
-topic
-next
-answer pwd
+```bash
+go run ./cmd/tui
 ```
 
-## Project structure
+### Run the GUI
+
+```bash
+go run ./cmd/gui
+```
+
+## Project layout
 
 ```text
 linux-tutor/
-├─ cmd/app/                  # Application entry point
-├─ internal/app/             # Bootstrapping and wiring
-├─ internal/agent/           # AI tutor logic and LPIC guidelines
-├─ internal/catalog/         # LPIC topic catalog in JSON/YAML
-├─ internal/domain/          # Core domain models
-├─ internal/infra/           # SQLite storage and repositories
-├─ internal/terminal/        # Bubble Tea UI and mini shell
-└─ docs/                     # Design notes and specification
+├─ cmd/
+│  ├─ app/
+│  ├─ gui/
+│  └─ tui/
+├─ internal/
+│  ├─ agent/
+│  ├─ app/
+│  ├─ catalog/
+│  ├─ domain/
+│  ├─ gui/
+│  ├─ infra/
+│  ├─ terminal/
+│  └─ usecase/
+├─ Makefile
+└─ README.md
 ```
-
-## Learning model
-
-The app uses an LPIC-oriented learning model:
-
-- presents one topic at a time,
-- generates practice tasks by topic code,
-- grades answers with a scoring rubric,
-- tracks weak areas,
-- prioritizes weaker topics in the next round.
-
-The topic coverage follows the LPIC-1 exam areas, including system architecture, commands, filesystems, shell scripting, administrative tasks, networking, and security [web:1][web:6].
 
 ## Scoring
 
 Answer evaluation uses a simple rubric:
 
-- exact answer,
-- partial answer,
+- exact answer.
+- partial answer.
 - wrong answer.
 
-This makes it easier to distinguish between complete understanding and partial familiarity, especially for scenario-based Linux tasks.
-
-## Roadmap
-
-Planned improvements include:
-
-- more task variants for each LPIC topic,
-- richer shell labs,
-- per-topic analytics,
-- spaced repetition,
-- user profiles,
-- AI-generated explanations,
-- exam mode with timers and weighted scoring.
+This makes it possible to distinguish between full understanding and partial familiarity, especially in shell and scenario-based tasks.
 
 ## Contributing
 
-Contributions are welcome.  
-Please open an issue or pull request if you want to add new tasks, improve LPIC topic coverage, or refine the UI.
+Contributions are welcome. If you add new topics, update the catalog. If you add a new task type, extend the agent and use-case layers consistently. If you change persistence, keep the repository and infra layers aligned.
 
 ## License
 
-MIT licence
+MIT
