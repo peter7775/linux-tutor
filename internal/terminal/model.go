@@ -27,11 +27,13 @@ type Model struct {
 	task domain.ShellTask
 	correct int
 	wrong int
+	topicIndex int
 }
 
 func NewModel(repo repository.ProgressRepo, ag agent.Agent) Model {
 	c,w,_ := repo.Load()
-	return Model{repo: repo, agent: ag, task: ag.Generate("103.5"), correct: c, wrong: w, output: []string{"Mini shell připraven.", "LPIC guidelines aktivní."}}
+	t := ag.Generate("103.5")
+	return Model{repo: repo, agent: ag, task: t, correct: c, wrong: w, output: []string{"Mini shell připraven.", "LPIC guidelines aktivní.", "Použij: task, answer <cmd>, next"}}
 }
 
 func (m Model) Init() tea.Cmd { return nil }
@@ -50,9 +52,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if m.screen == screenDashboard {
 				switch m.cursor { case 0: m.screen = screenShell; case 1: m.screen = screenProgress; case 2: _ = m.repo.Save(m.correct,m.wrong); return m, tea.Quit }
-			} else if m.screen == screenShell {
-				m.runShell()
-			}
+			} else if m.screen == screenShell { m.runShell() }
 		case "backspace":
 			if m.screen == screenShell && len(m.input) > 0 { m.input = m.input[:len(m.input)-1] }
 		default:
@@ -65,38 +65,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) runShell() {
 	cmd := strings.TrimSpace(m.input)
 	m.output = append(m.output, "> "+cmd)
-	switch cmd {
-	case "help":
-		m.output = append(m.output, "Příkazy: help, task, answer <cmd>, next, ls, pwd, whoami, clear, exit")
-	case "task":
-		m.output = append(m.output, "Úloha: "+m.task.Prompt)
-		m.output = append(m.output, "Téma: "+m.task.TopicCode+" | Hint: "+m.task.Hint)
-	case "next":
-		m.task = m.agent.Generate("103.4")
-		m.output = append(m.output, "Nová úloha: "+m.task.Prompt)
-	case "ls":
+	switch {
+	case cmd == "help":
+		m.output = append(m.output, "Příkazy: help, task, answer <cmd>, next, topic, ls, pwd, whoami, clear, exit")
+	case cmd == "task":
+		m.output = append(m.output, "Úloha ["+m.task.TopicCode+"]: "+m.task.Prompt)
+		m.output = append(m.output, "Hint: "+m.task.Hint)
+	case cmd == "topic":
+		m.output = append(m.output, "Aktuální téma: "+m.task.TopicCode)
+	case cmd == "next":
+		nt, err := m.agent.NextFromCatalog(m.task.TopicCode)
+		if err != nil { m.output = append(m.output, err.Error()) } else { m.task = m.agent.Generate(nt.Code); m.output = append(m.output, "Nová úloha ["+nt.Code+"]: "+m.task.Prompt) }
+	case cmd == "ls":
 		m.output = append(m.output, "cmd  internal  docs  data")
 		m.correct++
-	case "pwd":
+	case cmd == "pwd":
 		m.output = append(m.output, "/home/linux-tutor")
 		m.correct++
-	case "whoami":
+	case cmd == "whoami":
 		m.output = append(m.output, "student")
 		m.correct++
-	case "clear":
+	case cmd == "clear":
 		m.output = []string{}
-	case "exit":
+	case cmd == "exit":
 		m.screen = screenDashboard
+	case strings.HasPrefix(cmd, "answer "):
+		ans := strings.TrimSpace(strings.TrimPrefix(cmd, "answer"))
+		ok, msg := m.agent.Evaluate(m.task, ans)
+		m.output = append(m.output, msg)
+		if ok { m.correct++ } else { m.wrong++ }
+		_ = m.repo.Save(m.correct, m.wrong)
 	default:
-		if strings.HasPrefix(cmd, "answer ") {
-			ok, msg := m.agent.Evaluate(m.task, strings.TrimSpace(strings.TrimPrefix(cmd, "answer")))
-			m.output = append(m.output, msg)
-			if ok { m.correct++ } else { m.wrong++ }
-			_ = m.repo.Save(m.correct, m.wrong)
-		} else if cmd != "" {
-			m.output = append(m.output, "Nepodporovaný příkaz v mini shellu.")
-			m.wrong++
-		}
+		if cmd != "" { m.output = append(m.output, "Nepodporovaný příkaz v mini shellu."); m.wrong++ }
 	}
 	_ = m.repo.Save(m.correct, m.wrong)
 	m.input = ""

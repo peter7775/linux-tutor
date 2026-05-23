@@ -1,1 +1,1 @@
-# linux-tutor AI agent
+# linux-tutor integrated catalog and agent
