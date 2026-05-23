@@ -115,4 +115,4 @@ Please open an issue or pull request if you want to add new tasks, improve LPIC 
 
 ## License
 
-Add your chosen license here.
+MIT licence
