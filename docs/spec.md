@@ -1,1 +1,1 @@
-# linux-tutor mini shell
+# linux-tutor AI agent

@@ -2,6 +2,8 @@ package terminal
 
 import (
 	"fmt"
+	"linux-tutor/internal/agent"
+	"linux-tutor/internal/domain"
 	"linux-tutor/internal/infra/repository"
 	"strings"
 
@@ -21,13 +23,15 @@ type Model struct {
 	input string
 	output []string
 	repo repository.ProgressRepo
+	agent agent.Agent
+	task domain.ShellTask
 	correct int
 	wrong int
 }
 
-func NewModel(repo repository.ProgressRepo) Model {
+func NewModel(repo repository.ProgressRepo, ag agent.Agent) Model {
 	c,w,_ := repo.Load()
-	return Model{repo: repo, correct: c, wrong: w, output: []string{"Mini shell připraven.", "Zkuste: help, ls, pwd, whoami, clear, exit"}}
+	return Model{repo: repo, agent: ag, task: ag.Generate("103.5"), correct: c, wrong: w, output: []string{"Mini shell připraven.", "LPIC guidelines aktivní."}}
 }
 
 func (m Model) Init() tea.Cmd { return nil }
@@ -45,7 +49,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.screen == screenDashboard && m.cursor < 2 { m.cursor++ }
 		case "enter":
 			if m.screen == screenDashboard {
-				switch m.cursor { case 0: m.screen = screenShell; case 1: m.screen = screenProgress; case 2: _ = m.repo.Save(m.correct, m.wrong); return m, tea.Quit }
+				switch m.cursor { case 0: m.screen = screenShell; case 1: m.screen = screenProgress; case 2: _ = m.repo.Save(m.correct,m.wrong); return m, tea.Quit }
 			} else if m.screen == screenShell {
 				m.runShell()
 			}
@@ -63,9 +67,15 @@ func (m *Model) runShell() {
 	m.output = append(m.output, "> "+cmd)
 	switch cmd {
 	case "help":
-		m.output = append(m.output, "Příkazy: help, ls, pwd, whoami, clear, exit")
+		m.output = append(m.output, "Příkazy: help, task, answer <cmd>, next, ls, pwd, whoami, clear, exit")
+	case "task":
+		m.output = append(m.output, "Úloha: "+m.task.Prompt)
+		m.output = append(m.output, "Téma: "+m.task.TopicCode+" | Hint: "+m.task.Hint)
+	case "next":
+		m.task = m.agent.Generate("103.4")
+		m.output = append(m.output, "Nová úloha: "+m.task.Prompt)
 	case "ls":
-		m.output = append(m.output, "docs  assets  internal  cmd")
+		m.output = append(m.output, "cmd  internal  docs  data")
 		m.correct++
 	case "pwd":
 		m.output = append(m.output, "/home/linux-tutor")
@@ -78,7 +88,15 @@ func (m *Model) runShell() {
 	case "exit":
 		m.screen = screenDashboard
 	default:
-		if cmd != "" { m.output = append(m.output, "Nepodporovaný příkaz v mini shellu."); m.wrong++ }
+		if strings.HasPrefix(cmd, "answer ") {
+			ok, msg := m.agent.Evaluate(m.task, strings.TrimSpace(strings.TrimPrefix(cmd, "answer")))
+			m.output = append(m.output, msg)
+			if ok { m.correct++ } else { m.wrong++ }
+			_ = m.repo.Save(m.correct, m.wrong)
+		} else if cmd != "" {
+			m.output = append(m.output, "Nepodporovaný příkaz v mini shellu.")
+			m.wrong++
+		}
 	}
 	_ = m.repo.Save(m.correct, m.wrong)
 	m.input = ""

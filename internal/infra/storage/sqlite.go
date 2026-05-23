@@ -13,8 +13,10 @@ func Open(path string) (*sql.DB, error) {
 }
 
 func Migrate(db *sql.DB) error {
-	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS progress (id INTEGER PRIMARY KEY CHECK (id=1), correct INTEGER NOT NULL DEFAULT 0, wrong INTEGER NOT NULL DEFAULT 0);`)
-	if err != nil { return err }
-	_, err = db.Exec(`INSERT OR IGNORE INTO progress(id, correct, wrong) VALUES (1,0,0);`)
-	return err
+	stmts := []string{
+		`CREATE TABLE IF NOT EXISTS progress (id INTEGER PRIMARY KEY CHECK (id=1), correct INTEGER NOT NULL DEFAULT 0, wrong INTEGER NOT NULL DEFAULT 0);`,
+		`INSERT OR IGNORE INTO progress(id, correct, wrong) VALUES (1,0,0);`,
+	}
+	for _, s := range stmts { if _, err := db.Exec(s); err != nil { return err } }
+	return nil
 }
