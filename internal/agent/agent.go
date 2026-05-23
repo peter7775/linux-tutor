@@ -3,7 +3,6 @@ package agent
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"linux-tutor/internal/domain"
 	"math/rand"
 	"os"

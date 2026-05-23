@@ -149,39 +149,27 @@ func (m Model) View() string {
 	switch m.screen {
 	case screenDashboard:
 		items := []string{"Otevřít mini shell", "Přehled pokroku", "Konec"}
-		out := "linux-tutor
-
-"; for i, item := range items { c := " "; if m.cursor == i { c = ">" }; out += fmt.Sprintf("%s %s
-", c, item) }
-		return out + fmt.Sprintf("
-Progress: %s
-", m.bar.ViewAs(float64(m.correct)/math.Max(1, float64(m.correct+m.wrong+1)))) + "
-Pohyb: šipky, Enter, q"
+		out := "linux-tutor\n\n"
+		for i, item := range items {
+			c := " "
+			if m.cursor == i {
+				c = ">"
+			}
+			out += fmt.Sprintf("%s %s\n", c, item)
+		}
+		return out + fmt.Sprintf("\nProgress: %s\n\nPohyb: šipky, Enter, q", m.bar.ViewAs(float64(m.correct)/math.Max(1, float64(m.correct+m.wrong+1))))
 	case screenShell:
-		return "Mini shell
-
-" + strings.Join(m.output, "
-") + "
-
-> " + m.input + "
-
-Enter spustí příkaz, q vrátí zpět"
+		return "Mini shell\n\n" + strings.Join(m.output, "\n") + "\n\n> " + m.input + "\n\nEnter spustí příkaz, q vrátí zpět"
 	case screenProgress:
-		return "Pokrok
-
-Správně: " + fmt.Sprint(m.correct) + "
-Špatně: " + fmt.Sprint(m.wrong) + "
-Skóre: " + fmt.Sprint(m.score) + "
-
-LPIC areas:
-" + strings.Join(m.areaLines(), "
-") + "
-
-Weak topics:
-" + strings.Join(m.topicLines(), "
-") + "
-
-q pro návrat"
+		return "Pokrok\n\n" +
+			"Správně: " + fmt.Sprint(m.correct) + "\n" +
+			"Špatně: " + fmt.Sprint(m.wrong) + "\n" +
+			"Skóre: " + fmt.Sprint(m.score) + "\n\n" +
+			"LPIC areas:\n" +
+			strings.Join(m.areaLines(), "\n") + "\n\n" +
+			"Weak topics:\n" +
+			strings.Join(m.topicLines(), "\n") + "\n\n" +
+			"q pro návrat"
 	default:
 		return ""
 	}
