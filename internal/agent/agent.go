@@ -13,18 +13,8 @@ import (
 type Catalog struct { Topics []domain.Topic `json:"topics"` }
 type Agent struct { Catalog Catalog }
 
-func New(path string) Agent {
-	b, err := os.ReadFile(path)
-	if err != nil { return Agent{Catalog: Catalog{Topics: defaultTopics()}} }
-	var c Catalog
-	if json.Unmarshal(b, &c) != nil || len(c.Topics) == 0 { c.Topics = defaultTopics() }
-	return Agent{Catalog: c}
-}
-
-func (a Agent) topic(code string) domain.Topic {
-	for _, t := range a.Catalog.Topics { if t.Code == code { return t } }
-	return domain.Topic{Code: code, Title: "Unknown", Area: "Unknown"}
-}
+func New(path string) Agent { b, err := os.ReadFile(path); if err != nil { return Agent{Catalog: Catalog{Topics: defaultTopics()}} }; var c Catalog; if json.Unmarshal(b, &c) != nil || len(c.Topics) == 0 { c.Topics = defaultTopics() }; return Agent{Catalog: c} }
+func (a Agent) topic(code string) domain.Topic { for _, t := range a.Catalog.Topics { if t.Code == code { return t } }; return domain.Topic{Code: code, Title: "Unknown", Area: "Unknown"} }
 
 func (a Agent) Generate(code string) domain.Task {
 	t := a.topic(code)
@@ -41,11 +31,7 @@ func (a Agent) Generate(code string) domain.Task {
 	}
 }
 
-func (a Agent) Next(code string) (domain.Topic, error) {
-	for i, t := range a.Catalog.Topics { if t.Code == code && i+1 < len(a.Catalog.Topics) { return a.Catalog.Topics[i+1], nil } }
-	if len(a.Catalog.Topics) == 0 { return domain.Topic{}, errors.New("catalog empty") }
-	return a.Catalog.Topics[rand.New(rand.NewSource(time.Now().UnixNano())).Intn(len(a.Catalog.Topics))], nil
-}
+func (a Agent) Next(code string) (domain.Topic, error) { for i, t := range a.Catalog.Topics { if t.Code == code && i+1 < len(a.Catalog.Topics) { return a.Catalog.Topics[i+1], nil } }; if len(a.Catalog.Topics) == 0 { return domain.Topic{}, errors.New("catalog empty") }; return a.Catalog.Topics[rand.New(rand.NewSource(time.Now().UnixNano())).Intn(len(a.Catalog.Topics))], nil }
 
 func (a Agent) Evaluate(task domain.Task, input string) domain.AnswerResult {
 	norm := strings.TrimSpace(strings.ToLower(input))
