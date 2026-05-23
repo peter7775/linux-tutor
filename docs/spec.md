@@ -1,1 +1,1 @@
-# linux-tutor multi-type tasks
+# linux-tutor expanded tasks
