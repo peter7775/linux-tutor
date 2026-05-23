@@ -1,1 +1,1 @@
-# linux-tutor MVP
+# linux-tutor SQLite MVP

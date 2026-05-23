@@ -1,9 +1,14 @@
 package terminal
 
-import tea "github.com/charmbracelet/bubbletea"
+import (
+	"database/sql"
+	"linux-tutor/internal/infra/repository"
+	tea "github.com/charmbracelet/bubbletea"
+)
 
-func Start() error {
-	p := tea.NewProgram(NewModel())
+func Start(db *sql.DB) error {
+	repo := repository.ProgressRepo{DB: db}
+	p := tea.NewProgram(NewModel(repo))
 	_, err := p.Run()
 	return err
 }
