@@ -5,55 +5,84 @@ import (
 	"linux-tutor/internal/agent"
 	"linux-tutor/internal/domain"
 	"linux-tutor/internal/infra/repository"
-	"math"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type screen int
 
 const (
 	screenDashboard screen = iota
-	screenShell
+	screenLesson
+	screenPractice
+	screenTest
 	screenProgress
 )
 
 type Model struct {
-	screen  screen
-	cursor  int
-	input   string
-	output  []string
-	repo    repository.ProgressRepo
-	agent   agent.Agent
-	task    domain.Task
-	correct int
-	wrong   int
-	score   int
-	weak    map[string]int
-	area    map[string]domain.AreaStat
-	topic   map[string]domain.TopicStat
-	bar     progress.Model
-	ready   bool
+	screen        screen
+	cursor        int
+	input         string
+	output        []string
+	repo          repository.ProgressRepo
+	ag            agent.Agent
+	topicIdx      int
+	task          domain.Task
+	correct       int
+	wrong         int
+	score         int
+	weak          map[string]int
+	area          map[string]domain.AreaStat
+	topic         map[string]domain.TopicStat
+	attempts      []domain.Attempt
+	bar           progress.Model
+	testRemaining int
+	testMode      bool
 }
 
 func NewModel(repo repository.ProgressRepo, ag agent.Agent) Model {
 	c, w, _ := repo.Load()
 	b := progress.New(progress.WithDefaultGradient())
-	return Model{repo: repo, agent: ag, task: ag.Generate("103.4"), correct: c, wrong: w, output: []string{"Mini shell ready.", "Use: task, answer, next, type, topic, help"}, weak: map[string]int{}, area: map[string]domain.AreaStat{}, topic: map[string]domain.TopicStat{}, bar: b}
+	m := Model{repo: repo, ag: ag, output: []string{"Linux tutor ready."}, weak: map[string]int{}, area: map[string]domain.AreaStat{}, topic: map[string]domain.TopicStat{}, attempts: []domain.Attempt{}, bar: b, correct: c, wrong: w, testRemaining: 60}
+	m.loadNext()
+	m.syncProgress()
+	return m
 }
 
-func (m Model) Init() tea.Cmd { return nil }
+func (m Model) Init() tea.Cmd { return m.tickCmd() }
 
-func (m *Model) updateProgress() {
-	m.bar.SetPercent(float64(m.correct) / math.Max(1, float64(m.correct+m.wrong+1)))
+type tickMsg time.Time
+
+func (m Model) tickCmd() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg { return tickMsg(t) })
+}
+
+func max(a, b float64) float64 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func (m *Model) syncProgress() {
+	total := m.correct + m.wrong
+	m.bar.SetPercent(float64(m.correct) / max(1, float64(total+1)))
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tickMsg:
+		if m.testMode && m.testRemaining > 0 {
+			m.testRemaining--
+			if m.testRemaining == 0 {
+				m.testMode = false
+				m.output = append(m.output, "Test finished.")
+			}
+		}
+		return m, m.tickCmd()
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -64,29 +93,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor--
 			}
 		case "down":
-			if m.screen == screenDashboard && m.cursor < 2 {
+			if m.screen == screenDashboard && m.cursor < 4 {
 				m.cursor++
 			}
 		case "enter":
 			if m.screen == screenDashboard {
 				switch m.cursor {
 				case 0:
-					m.screen = screenShell
+					m.screen = screenLesson
 				case 1:
-					m.screen = screenProgress
+					m.screen = screenPractice
 				case 2:
+					m.screen = screenTest
+				case 3:
+					m.screen = screenProgress
+				case 4:
 					_ = m.repo.Save(m.correct, m.wrong)
 					return m, tea.Quit
 				}
-			} else if m.screen == screenShell {
-				m.runShell()
+			} else if m.screen == screenLesson {
+				m.loadNext()
+			} else if m.screen == screenPractice || m.screen == screenTest {
+				m.submit()
 			}
 		case "backspace":
-			if m.screen == screenShell && len(m.input) > 0 {
+			if (m.screen == screenPractice || m.screen == screenTest) && len(m.input) > 0 {
 				m.input = m.input[:len(m.input)-1]
 			}
 		default:
-			if m.screen == screenShell && len(msg.String()) == 1 {
+			if (m.screen == screenPractice || m.screen == screenTest) && len(msg.String()) == 1 {
 				m.input += msg.String()
 			}
 		}
@@ -94,164 +129,119 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *Model) bump(area string, code string, delta int) {
-	sa := m.area[area]
-	sa.Area = area
-	st := m.topic[code]
-	st.Code = code
-	st.LastSeen = time.Now()
-	if delta > 0 {
-		sa.Correct++
-		st.Correct++
-	} else {
-		sa.Wrong++
-		st.Wrong++
+func (m *Model) loadNext() {
+	if len(m.ag.Catalog.Topics) == 0 {
+		return
 	}
-	m.area[area] = sa
-	m.topic[code] = st
-}
-
-func (m *Model) pickAdaptive() domain.Topic {
-	bestCode, bestScore := "", math.MaxInt
-	for code, st := range m.topic {
-		sum := st.Correct + st.Wrong
-		if sum == 0 {
-			continue
-		}
-		s := st.Wrong*2 - st.Correct
-		if s < bestScore {
-			bestScore, bestCode = s, code
-		}
+	if m.topicIdx >= len(m.ag.Catalog.Topics) {
+		m.topicIdx = 0
 	}
-	if bestCode != "" {
-		for _, t := range m.agent.Catalog.Topics {
-			if t.Code == bestCode {
-				return t
-			}
-		}
-	}
-	bestWeak, maxWeak := "", -1
-	for code, cnt := range m.weak {
-		if cnt > maxWeak {
-			bestWeak, maxWeak = code, cnt
-		}
-	}
-	if bestWeak != "" {
-		for _, t := range m.agent.Catalog.Topics {
-			if t.Code == bestWeak {
-				return t
-			}
-		}
-	}
-	if n, err := m.agent.Next(m.task.Topic.Code); err == nil {
-		return n
-	}
-	return m.task.Topic
+	t := m.ag.Catalog.Topics[m.topicIdx]
+	m.task = m.ag.Generate(t.Code)
+	m.topicIdx++
 }
 
 func (m *Model) nextAdaptive() {
-	t := m.pickAdaptive()
-	m.task = m.agent.Generate(t.Code)
-	m.output = append(m.output, "Adaptive topic: "+t.Code+" - "+t.Area)
-}
-
-func (m *Model) runShell() {
-	cmd := strings.TrimSpace(m.input)
-	m.output = append(m.output, "> "+cmd)
-	switch {
-	case cmd == "help":
-		m.output = append(m.output, "Příkazy: help, task, type, topic, next, answer <...>, ls, pwd, whoami, clear, exit")
-	case cmd == "task":
-		m.output = append(m.output, fmt.Sprintf("[%s] %s", m.task.Kind, m.task.Prompt))
-		if len(m.task.Choices) > 0 {
-			m.output = append(m.output, "Možnosti: "+strings.Join(m.task.Choices, ", "))
-		}
-		m.output = append(m.output, "Hint: "+m.task.Hint)
-	case cmd == "type":
-		m.output = append(m.output, "Typ úlohy: "+m.task.Kind)
-	case cmd == "topic":
-		m.output = append(m.output, fmt.Sprintf("Téma: %s | %s", m.task.Topic.Code, m.task.Topic.Area))
-	case cmd == "next":
-		m.nextAdaptive()
-	case cmd == "ls":
-		m.output = append(m.output, "cmd  internal  docs  data")
-		m.correct++
-		m.score++
-	case cmd == "pwd":
-		m.output = append(m.output, "/home/linux-tutor")
-		m.correct++
-		m.score++
-	case cmd == "whoami":
-		m.output = append(m.output, "student")
-		m.correct++
-		m.score++
-	case cmd == "clear":
-		m.output = []string{}
-	case cmd == "exit":
-		m.screen = screenDashboard
-	case strings.HasPrefix(cmd, "answer "):
-		ans := strings.TrimSpace(strings.TrimPrefix(cmd, "answer"))
-		r := m.agent.Evaluate(m.task, ans)
-		if r.ScoreDelta == 10 {
-			m.correct++
-		} else if r.ScoreDelta == 5 {
-			m.weak[m.task.Topic.Code]++
-		} else {
-			m.wrong++
-			m.weak[m.task.Topic.Code]++
-		}
-		m.score += r.ScoreDelta
-		m.bump(m.task.Topic.Area, m.task.Topic.Code, r.ScoreDelta)
-		m.output = append(m.output, fmt.Sprintf("%s (+%d)", r.Notes, r.ScoreDelta))
-		_ = m.repo.Save(m.correct, m.wrong)
-	default:
-		if cmd != "" {
-			m.output = append(m.output, "Nepodporovaný příkaz v mini shellu.")
-			m.wrong++
-			m.score--
+	best := ""
+	bestScore := 1 << 30
+	for code, st := range m.topic {
+		if st.Correct+st.Wrong > 0 {
+			sc := st.Wrong*2 - st.Correct
+			if sc < bestScore {
+				bestScore, best = sc, code
+			}
 		}
 	}
+	if best == "" {
+		m.loadNext()
+		return
+	}
+	m.task = m.ag.Generate(best)
+}
+
+func (m *Model) addStats(delta int, ans string) {
+	a := m.area[m.task.Topic.Area]
+	a.Area = m.task.Topic.Area
+	if delta > 0 {
+		a.Correct++
+	} else {
+		a.Wrong++
+	}
+	m.area[m.task.Topic.Area] = a
+	t := m.topic[m.task.Topic.Code]
+	t.Code = m.task.Topic.Code
+	t.LastSeen = time.Now()
+	if delta > 0 {
+		t.Correct++
+	} else {
+		t.Wrong++
+	}
+	m.topic[m.task.Topic.Code] = t
+	m.attempts = append(m.attempts, domain.Attempt{TopicCode: m.task.Topic.Code, Prompt: m.task.Prompt, Answer: ans, Notes: fmt.Sprintf("%d", delta), ScoreDelta: delta, CreatedAt: time.Now()})
+}
+
+func (m *Model) submit() {
+	ans := strings.TrimSpace(m.input)
+	r := m.ag.Evaluate(m.task, ans)
+	if r.ScoreDelta == 10 {
+		m.correct++
+	} else if r.ScoreDelta == 5 {
+		m.weak[m.task.Topic.Code]++
+	} else {
+		m.wrong++
+		m.weak[m.task.Topic.Code]++
+	}
+	m.score += r.ScoreDelta
+	m.addStats(r.ScoreDelta, ans)
 	_ = m.repo.Save(m.correct, m.wrong)
-	m.updateProgress()
+	_ = m.repo.SaveAttempt(m.task.Topic.Code, m.task.Prompt, ans, r.Notes, r.ScoreDelta)
+	m.output = append(m.output, fmt.Sprintf("%s (+%d)", r.Notes, r.ScoreDelta))
 	m.input = ""
-}
-
-func (m Model) renderStats() string {
-	p := lipgloss.NewStyle().Bold(true).Render("LPIC stats") + "\n"
-	for _, a := range m.area {
-		p += fmt.Sprintf("%s: %d correct, %d wrong", a.Area, a.Correct, a.Wrong)
-	}
-	if len(m.area) == 0 {
-		p += "No area data yet"
-	}
-	p += "Weak topics:"
-	for code, cnt := range m.weak {
-		p += fmt.Sprintf("%s: %d", code, cnt)
-	}
-	if len(m.weak) == 0 {
-		p += "No weak topics yet"
-	}
-	return p
+	m.syncProgress()
+	m.nextAdaptive()
 }
 
 func (m Model) View() string {
 	switch m.screen {
 	case screenDashboard:
-		items := []string{"Open learning room", "Open progress", "Quit"}
-		out := "linux-tutor"
-		for i, item := range items {
-			c := " "
-			if m.cursor == i {
-				c = ">"
-			}
-			out += fmt.Sprintf("%s %s", c, item)
-		}
-		return out + "Progress: " + m.bar.ViewAs(float64(m.correct)/math.Max(1, float64(m.correct+m.wrong+1))) + "Use arrows + Enter"
-	case screenShell:
-		return "Learning room\n" + strings.Join(m.output, "") + "> " + m.input + "Enter runs the command, q returns"
+		return "linux-tutor		> Lesson		Practice		Test		Progress		Quit	Progress: " + m.bar.View()
+	case screenLesson:
+		return "Lesson		" + m.lessonView() + "		Enter next, q back"
+	case screenPractice:
+		return "Practice		" + m.practiceView() + "		> " + m.input + "		Enter submit, q back"
+	case screenTest:
+		return fmt.Sprintf("Test (%ds left)		%s		> %s		Enter submit, q back", m.testRemaining, m.practiceView(), m.input)
 	case screenProgress:
-		return fmt.Sprintf("Progress\nCorrect: %d\nWrong: %d\nScore: %d\n%s\nq to return", m.correct, m.wrong, m.score, m.renderStats())
+		return "Progress		" + m.progressView() + "		q back"
 	default:
 		return ""
 	}
+}
+
+func (m Model) lessonView() string {
+	if len(m.ag.Catalog.Topics) == 0 {
+		return "No topics"
+	}
+	t := m.ag.Catalog.Topics[(m.topicIdx-1+len(m.ag.Catalog.Topics))%len(m.ag.Catalog.Topics)]
+	lessons := map[string]string{"103.4": "Practice redirecting stdout and stderr.", "103.5": "Find, inspect, and kill processes.", "104.5": "Work with chmod, chown, and umask.", "105.2": "Write simple shell scripts.", "107.1": "Learn /etc/passwd and groups.", "107.2": "Schedule tasks with cron.", "109.3": "Diagnose DNS, routing, and connectivity.", "110.2": "Check services and host security."}
+	return fmt.Sprintf("%s	%s	%s	Task preview: %s", t.Code, t.Title, lessons[t.Code], m.ag.Generate(t.Code).Prompt)
+}
+
+func (m Model) practiceView() string {
+	if m.task.ID == "" {
+		return "No task loaded"
+	}
+	return fmt.Sprintf("[%s] %sHint: %s", m.task.Kind, m.task.Prompt, m.task.Hint)
+}
+
+func (m Model) progressView() string {
+	out := fmt.Sprintf("Correct: %d		Wrong: %d		Score: %d		Attempts: %d		Weak topics:		", m.correct, m.wrong, m.score, len(m.attempts))
+	for code, c := range m.weak {
+		out += fmt.Sprintf("%s: %d", code, c)
+	}
+	out += "		Areas:		"
+	for _, a := range m.area {
+		out += fmt.Sprintf("%s: %d correct / %d wrong ", a.Area, a.Correct, a.Wrong)
+	}
+	return out
 }
