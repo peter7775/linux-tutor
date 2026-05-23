@@ -1,6 +1,6 @@
 package agent
 
-var Guidelines = []string{
+var LPICGuidelines = []string{
 	"LPIC 101: system architecture, commands, filesystems, permissions, links, FHS.",
 	"LPIC 102: shells and scripting, admin tasks, services, networking, security.",
 	"Prefer commands and scenarios that fit official LPIC-style objectives.",

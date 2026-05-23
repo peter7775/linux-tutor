@@ -16,7 +16,7 @@ $(BIN_DIR):
 tidy:
 	go mod tidy
 
-build: $(BIN_DIR)
+build: $(BIN_DIR) tidy
 	go build -o $(BIN) $(MAIN_PKG)
 
 test:

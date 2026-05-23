@@ -33,25 +33,6 @@ func (a Agent) Generate(code string) domain.Task {
 
 func (a Agent) Next(code string) (domain.Topic, error) { for i, t := range a.Catalog.Topics { if t.Code == code && i+1 < len(a.Catalog.Topics) { return a.Catalog.Topics[i+1], nil } }; if len(a.Catalog.Topics) == 0 { return domain.Topic{}, errors.New("catalog empty") }; return a.Catalog.Topics[rand.New(rand.NewSource(time.Now().UnixNano())).Intn(len(a.Catalog.Topics))], nil }
 
-func (a Agent) Evaluate(task domain.Task, input string) domain.AnswerResult {
-	norm := strings.TrimSpace(strings.ToLower(input))
-	exp := strings.TrimSpace(strings.ToLower(task.Expected))
-	r := domain.AnswerResult{Exact: 10, Partial: 5, Wrong: 0}
-	switch task.Kind {
-	case "single_command", "fill_blank":
-		if norm == exp || strings.HasPrefix(norm, exp+" ") { r.ScoreDelta = r.Exact; r.Notes = "correct" } else { r.ScoreDelta = r.Wrong; r.Notes = "wrong" }
-	case "multi_command":
-		if (strings.Contains(norm, "ip a") && strings.Contains(norm, "ping")) || strings.Contains(norm, "2>&1") { r.ScoreDelta = r.Exact; r.Notes = "correct" } else if strings.Contains(norm, "ip") || strings.Contains(norm, "ping") { r.ScoreDelta = r.Partial; r.Notes = "partial" } else { r.ScoreDelta = r.Wrong; r.Notes = "wrong" }
-	case "multiple_choice":
-		if norm == exp { r.ScoreDelta = r.Exact; r.Notes = "correct" } else { r.ScoreDelta = r.Wrong; r.Notes = "wrong" }
-	case "ordering":
-		if norm == exp { r.ScoreDelta = r.Exact; r.Notes = "correct" } else if len(norm) > 0 { r.ScoreDelta = r.Partial; r.Notes = "partial" } else { r.ScoreDelta = r.Wrong; r.Notes = "wrong" }
-	case "scenario":
-		if strings.Contains(norm, exp) { r.ScoreDelta = r.Exact; r.Notes = "correct" } else if len(norm) > 0 { r.ScoreDelta = r.Partial; r.Notes = "partial" } else { r.ScoreDelta = r.Wrong; r.Notes = "wrong" }
-	default:
-		if norm == exp { r.ScoreDelta = r.Exact; r.Notes = "correct" } else { r.ScoreDelta = r.Wrong; r.Notes = "wrong" }
-	}
-	return r
-}
+func (a Agent) Evaluate(task domain.Task, input string) domain.AnswerResult { norm := strings.TrimSpace(strings.ToLower(input)); exp := strings.TrimSpace(strings.ToLower(task.Expected)); r := domain.AnswerResult{Exact: 10, Partial: 5, Wrong: 0}; switch task.Kind { case "single_command", "fill_blank": if norm == exp || strings.HasPrefix(norm, exp+" ") { r.ScoreDelta = r.Exact; r.Notes = "correct" } else { r.ScoreDelta = r.Wrong; r.Notes = "wrong" }; case "multi_command": if (strings.Contains(norm, "ip a") && strings.Contains(norm, "ping")) || strings.Contains(norm, "2>&1") { r.ScoreDelta = r.Exact; r.Notes = "correct" } else if strings.Contains(norm, "ip") || strings.Contains(norm, "ping") { r.ScoreDelta = r.Partial; r.Notes = "partial" } else { r.ScoreDelta = r.Wrong; r.Notes = "wrong" }; case "multiple_choice": if norm == exp { r.ScoreDelta = r.Exact; r.Notes = "correct" } else { r.ScoreDelta = r.Wrong; r.Notes = "wrong" }; case "ordering": if norm == exp { r.ScoreDelta = r.Exact; r.Notes = "correct" } else if len(norm) > 0 { r.ScoreDelta = r.Partial; r.Notes = "partial" } else { r.ScoreDelta = r.Wrong; r.Notes = "wrong" }; case "scenario": if strings.Contains(norm, exp) { r.ScoreDelta = r.Exact; r.Notes = "correct" } else if len(norm) > 0 { r.ScoreDelta = r.Partial; r.Notes = "partial" } else { r.ScoreDelta = r.Wrong; r.Notes = "wrong" }; default: if norm == exp { r.ScoreDelta = r.Exact; r.Notes = "correct" } else { r.ScoreDelta = r.Wrong; r.Notes = "wrong" } }; return r }
 
 func defaultTopics() []domain.Topic { return []domain.Topic{{Code: "103.4", Title: "Use streams, pipes and redirects", Area: "GNU and Unix Commands"}} }
