@@ -34,22 +34,22 @@ jobs:
           build-essential \
           pkg-config
 
-          - name: Cache Go modules
-            uses: actions/cache@v4
-            with:
-              path: |
-                ~/.cache/go-build
-                ~/go/pkg/mod
-              key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-              restore-keys: |
-                ${{ runner.os }}-go-
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+          path: |
+             ~/.cache/go-build
+             ~/go/pkg/mod
+             key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+             restore-keys: |
+             ${{ runner.os }}-go-
 
-          - name: Go mod tidy
-            run: go mod tidy
+    - name: Go mod tidy
+      run: go mod tidy
 
-          - name: Run make (build)
-            run: make all
-        
+    - name: Run make (build)
+      run: make all
+
     - name: Build
       run: go build -v ./...
 
