@@ -1,1 +1,1 @@
-# linux-tutor expanded tasks
+# linux-tutor rubric
