@@ -1,0 +1,7 @@
+tracks:
+  - id: lpic1-101
+    title: LPIC-1 Exam 101
+    topics:
+      - code: 101.1
+        title: Determine and configure hardware settings
+        area: System Architecture
