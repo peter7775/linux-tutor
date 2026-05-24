@@ -1,3 +1,3 @@
 package agent
 
-// Placeholder for future retrieval, search, or shell tools.
+// reserved for future retrieval or LLM tool calls
