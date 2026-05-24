@@ -1,3 +1,3 @@
 package repository
 
-type TopicRepo struct{}
+// topic repository stub kept separate from ProgressRepo.

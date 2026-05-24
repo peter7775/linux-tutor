@@ -1,5 +1,3 @@
 package app
 
-type Config struct {
-	AppName string
-}
+type Config struct{ CatalogPath string }

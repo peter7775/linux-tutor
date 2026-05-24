@@ -2,26 +2,29 @@ package domain
 
 import "time"
 
+type Progress struct{ Correct, Wrong int }
 type Topic struct{ Code, Title, Area string }
 type Task struct {
-	ID                           string
-	Topic                        Topic
-	Kind, Prompt, Expected, Hint string
-	Choices                      []string
+	ID       string
+	Topic    Topic
+	Kind     string
+	Prompt   string
+	Expected string
+	Choices  []string
+	Hint     string
 }
-type AnswerResult struct {
-	Exact, Partial, Wrong, ScoreDelta int
-	Notes                             string
-}
+
 type AreaStat struct {
 	Area           string
 	Correct, Wrong int
 }
 type TopicStat struct {
-	Code           string
-	Correct, Wrong int
-	LastSeen       time.Time
+	Code     string
+	Correct  int
+	Wrong    int
+	LastSeen time.Time
 }
+
 type Attempt struct {
 	TopicCode, Prompt, Answer, Notes string
 	ScoreDelta                       int

@@ -1,5 +1,8 @@
 package app
 
-func NewConfig() Config {
-	return Config{AppName: "lpi-tutor"}
-}
+import (
+	"linux-tutor/internal/agent"
+	"linux-tutor/internal/infra/repository"
+)
+
+func Build() (agent.Agent, repository.ProgressRepo) { return agent.New(""), repository.ProgressRepo{} }
