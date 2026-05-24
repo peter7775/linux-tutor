@@ -1,0 +1,1 @@
+Place your font files here: regular.ttf, bold.ttf, italic.ttf, bolditalic.ttf
