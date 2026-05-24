@@ -1,12 +1,10 @@
 package main
 
-import (
-	"linux-tutor/internal/app"
-	"log"
-)
+import "linux-tutor/internal/app"
 
 func main() {
-	if err := app.RunGUI(); err != nil {
-		log.Fatal(err)
+	err := app.RunGUI()
+	if err != nil {
+		return
 	}
 }

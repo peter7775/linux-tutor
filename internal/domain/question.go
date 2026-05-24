@@ -13,5 +13,8 @@ type Question struct {
 	Hint        string
 	Meta        map[string]string
 	Answer      string
-	Topic       string
+	Topic       Topic
+	Kind        string
+	Expected    string
+	Task        Task
 }

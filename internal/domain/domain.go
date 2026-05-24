@@ -11,9 +11,8 @@ type Task struct {
 	Prompt   string
 	Expected string
 	Choices  []string
-	Hint     string
+	Question *Question
 }
-
 type AreaStat struct {
 	Area           string
 	Correct, Wrong int
@@ -24,7 +23,6 @@ type TopicStat struct {
 	Wrong    int
 	LastSeen time.Time
 }
-
 type Attempt struct {
 	TopicCode, Prompt, Answer, Notes string
 	ScoreDelta                       int

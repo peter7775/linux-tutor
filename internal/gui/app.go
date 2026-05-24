@@ -63,17 +63,18 @@ func newState(db *sql.DB) *state {
 		testRemaining: 60,
 	}
 	if len(st.ag.Catalog.Topics) > 0 {
-		st.task = st.ag.Generate(st.ag.Catalog.Topics[0].Code)
+		st.task = st.ag.Generate(st.ag.Catalog.Topics[0].Code).Task
 	}
 	return st
 }
 
 func (s *state) add(delta int, ans string) {
-	if delta == 10 {
+	switch delta {
+	case 10:
 		s.correct++
-	} else if delta == 5 {
+	case 5:
 		s.weak[s.task.Topic.Code]++
-	} else {
+	default:
 		s.wrong++
 		s.weak[s.task.Topic.Code]++
 	}
@@ -109,7 +110,12 @@ func (s *state) add(delta int, ans string) {
 	})
 
 	_ = s.repo.Save(s.correct, s.wrong)
-	_ = s.repo.SaveAttempt(s.task.Topic.Code, s.task.Prompt, ans, fmt.Sprintf("%d", delta), delta)
+	_ = s.repo.SaveAttempt(domain.Attempt{
+		TopicCode: s.task.Topic.Code,
+		Prompt:    s.task.Prompt,
+		Answer:    ans,
+		Notes:     fmt.Sprintf("%d", delta),
+	})
 }
 
 func (s *state) nextAdaptive() {
@@ -132,7 +138,7 @@ func (s *state) nextAdaptive() {
 	}
 
 	if best != "" {
-		s.task = s.ag.Generate(best)
+		s.task = s.ag.Generate(best).Task
 	}
 }
 
@@ -168,7 +174,7 @@ func buildUI(s *state) (fyne.CanvasObject, *widget.Label, *widget.Label, *widget
 	)
 
 	refresh := func(code string) {
-		s.task = s.ag.Generate(code)
+		s.task = s.ag.Generate(code).Task
 		lesson.SetText(lessonText(s.task.Topic))
 		question.SetText(renderQuestion(s.task))
 		stats.SetText(renderStats(s))
@@ -188,7 +194,7 @@ func buildUI(s *state) (fyne.CanvasObject, *widget.Label, *widget.Label, *widget
 
 	submit := func() {
 		ans := strings.TrimSpace(answer.Text)
-		r := s.ag.Evaluate(s.task, ans)
+		r := s.ag.Evaluate(*s.task.Question, ans)
 		s.add(r.ScoreDelta, ans)
 		feedback.SetText(renderFeedback(r, s.task, ans))
 		progress.SetValue(float64(s.correct) / math.Max(1, float64(s.correct+s.wrong+1)))
@@ -282,9 +288,11 @@ func renderQuestion(task domain.Task) string {
 
 func renderFeedback(r domain.AnswerResult, task domain.Task, ans string) string {
 	status := "Wrong"
-	if r.ScoreDelta == 10 {
+
+	switch r.ScoreDelta {
+	case 10:
 		status = "Correct"
-	} else if r.ScoreDelta == 5 {
+	case 5:
 		status = "Partially correct"
 	}
 

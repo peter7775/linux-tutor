@@ -1,3 +1,3 @@
 package agent
 
-type Tool interface{}
+// Placeholder for future retrieval, search, or shell tools.

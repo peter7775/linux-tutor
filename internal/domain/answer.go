@@ -6,7 +6,7 @@ type Answer struct {
 }
 type AnswerResult struct {
 	Exact      int
-	Partial    bool
+	Partial    int
 	Wrong      int
 	ScoreDelta int
 	Notes      string

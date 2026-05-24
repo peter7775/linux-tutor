@@ -2,4 +2,5 @@ package usecase
 
 import "linux-tutor/internal/domain"
 
-func StartLesson(topic domain.Topic) domain.Question { return domain.Question{} }
+type StartLessonInput struct{ Topic domain.Topic }
+type StartLessonOutput struct{ Question domain.Question }
