@@ -1,0 +1,16 @@
+tracks:
+- id: lpic1
+  title: LPIC-1
+  exams:
+  - '101'
+  - '102'
+- id: lpic2
+  title: LPIC-2
+  exams:
+  - '201'
+  - '202'
+source_files:
+- lpic-1-101.yaml
+- lpic-1-102.yaml
+- lpic-2-201.yaml
+- lpic-2-202.yaml

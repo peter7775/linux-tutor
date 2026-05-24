@@ -1,0 +1,75 @@
+track:
+  id: lpic2
+  title: LPIC-2 Exam 202
+  exam: '202'
+topics:
+- code: '202.1'
+  title: Configure DNS server basics
+  area: Domain Name Server
+  difficulty: intermediate
+  keywords:
+  - bind
+  - zone
+  - records
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []
+- code: '202.2'
+  title: Configure web services
+  area: Web Services
+  difficulty: intermediate
+  keywords:
+  - apache
+  - nginx
+  - virtual hosts
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []
+- code: '202.3'
+  title: Configure file sharing services
+  area: File Sharing
+  difficulty: intermediate
+  keywords:
+  - samba
+  - nfs
+  - ftp
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []
+- code: '202.4'
+  title: Manage client-side network services
+  area: Network Client Management
+  difficulty: intermediate
+  keywords:
+  - dhcp
+  - ldap
+  - nss
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []
+- code: '202.6'
+  title: Apply advanced system security
+  area: System Security
+  difficulty: intermediate
+  keywords:
+  - pam
+  - apparmor
+  - selinux
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []

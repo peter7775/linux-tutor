@@ -1,0 +1,75 @@
+track:
+  id: lpic2
+  title: LPIC-2 Exam 201
+  exam: '201'
+topics:
+- code: '201.1'
+  title: Measure and troubleshoot resource usage
+  area: Capacity Planning
+  difficulty: intermediate
+  keywords:
+  - cpu
+  - memory
+  - io
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []
+- code: '201.2'
+  title: Configure and build kernel and kernel modules
+  area: Linux Kernel
+  difficulty: intermediate
+  keywords:
+  - kernel
+  - modules
+  - sysctl
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []
+- code: '201.3'
+  title: Manage system startup and services
+  area: System Startup
+  difficulty: intermediate
+  keywords:
+  - systemd
+  - initramfs
+  - boot
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []
+- code: '201.4'
+  title: Manage advanced filesystems and device handling
+  area: Filesystem and Devices
+  difficulty: intermediate
+  keywords:
+  - lvm
+  - raid
+  - udev
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []
+- code: '201.6'
+  title: Configure advanced networking
+  area: Networking Configuration
+  difficulty: intermediate
+  keywords:
+  - bridge
+  - bonding
+  - routing
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []

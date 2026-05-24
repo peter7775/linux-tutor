@@ -1,0 +1,75 @@
+track:
+  id: lpic1
+  title: LPIC-1 Exam 101
+  exam: '101'
+topics:
+- code: '101.1'
+  title: Determine and configure hardware settings
+  area: System Architecture
+  difficulty: beginner
+  keywords:
+  - hardware
+  - firmware
+  - boot
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []
+- code: '101.2'
+  title: Boot the system
+  area: System Architecture
+  difficulty: beginner
+  keywords:
+  - boot
+  - grub
+  - kernel
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []
+- code: '101.3'
+  title: Change runlevels or boot targets and shutdown or reboot system
+  area: System Architecture
+  difficulty: beginner
+  keywords:
+  - systemd
+  - shutdown
+  - targets
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []
+- code: '101.4'
+  title: Design hard disk layout
+  area: Linux Installation and Package Management
+  difficulty: beginner
+  keywords:
+  - partitions
+  - lvm
+  - filesystems
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []
+- code: '101.5'
+  title: Manage the boot process
+  area: Linux Installation and Package Management
+  difficulty: beginner
+  keywords:
+  - bootloader
+  - grub2
+  - initramfs
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []

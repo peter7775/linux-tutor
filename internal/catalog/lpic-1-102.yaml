@@ -1,0 +1,89 @@
+track:
+  id: lpic1
+  title: LPIC-1 Exam 102
+  exam: '102'
+topics:
+- code: '105.1'
+  title: Customize and use the shell environment
+  area: Shells and Shell Scripting
+  difficulty: beginner
+  keywords:
+  - bashrc
+  - env
+  - aliases
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []
+- code: '105.2'
+  title: Customize or write simple scripts
+  area: Shells and Shell Scripting
+  difficulty: beginner
+  keywords:
+  - script
+  - shebang
+  - variables
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []
+- code: '107.1'
+  title: Manage user and group accounts and related system files
+  area: Administrative Tasks
+  difficulty: beginner
+  keywords:
+  - useradd
+  - groupadd
+  - /etc/passwd
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []
+- code: '107.2'
+  title: Automate system administration tasks by scheduling jobs
+  area: Administrative Tasks
+  difficulty: beginner
+  keywords:
+  - cron
+  - at
+  - crontab
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []
+- code: '109.3'
+  title: Basic network troubleshooting
+  area: Networking Fundamentals
+  difficulty: beginner
+  keywords:
+  - ping
+  - traceroute
+  - ss
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []
+- code: '110.2'
+  title: Set up host security
+  area: Security
+  difficulty: beginner
+  keywords:
+  - firewall
+  - ssh
+  - hardening
+  task_types:
+  - single_command
+  - scenario
+  - multi_command
+  hint_style: short
+  prerequisites: []
