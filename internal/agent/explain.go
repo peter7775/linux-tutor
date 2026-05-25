@@ -70,7 +70,9 @@ Napiš 2-4 krátké věty v češtině.`, task.Topic.Title, task.Prompt, answer,
 	if err != nil {
 		return localExplain(task, answer, result)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return localExplain(task, answer, result)
