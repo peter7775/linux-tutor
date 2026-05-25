@@ -290,7 +290,72 @@ func (s *state) nextAdaptive() domain.Question {
 	}
 	return s.ag.Generate(tops[0].Code)
 }
+func (s *state) repeatAdaptive() domain.Question {
+	tops := s.ag.GetCatalog().Topics
+	if len(tops) == 0 {
+		return s.task
+	}
+	if s.task.ID != "" {
+		for i, t := range tops {
+			if t.Code == s.task.Topic.Code {
+				j := i
+				if j < 0 {
+					j = 0
+				}
+				return s.ag.Generate(tops[j].Code)
+			}
+		}
+	}
+	if s.task.Topic.Code != "" {
+		return s.ag.Generate(s.task.Topic.Code)
+	}
+	return s.ag.Generate(tops[0].Code)
+}
 
+func (s *state) nextByErrorControl() domain.Question {
+	tops := s.ag.GetCatalog().Topics
+	if len(tops) == 0 {
+		return s.task
+	}
+	current := s.task.Topic.Code
+	curWeak := s.weak[current]
+	bestCode := current
+	bestScore := -1
+	for _, t := range tops {
+		st := s.topic[t.Code]
+		score := st.Wrong*3 + s.weak[t.Code]*4 - st.Correct
+		if t.Code == current {
+			score -= 2
+		}
+		if score > bestScore {
+			bestScore = score
+			bestCode = t.Code
+		}
+	}
+	if curWeak >= 2 {
+		bestCode = current
+	}
+	if bestCode == "" {
+		bestCode = current
+	}
+	if bestCode == current && curWeak == 0 {
+		bestCode = s.nextTopicCode(current)
+	}
+	return s.ag.Generate(bestCode)
+}
+
+func (s *state) nextTopicCode(current string) string {
+	tops := s.ag.GetCatalog().Topics
+	if len(tops) == 0 {
+		return current
+	}
+	for i, t := range tops {
+		if t.Code == current {
+			return tops[(i+1)%len(tops)].Code
+		}
+	}
+	return tops[0].Code
+}
 func lessonText(t domain.Topic) string {
 	return fmt.Sprintf("%s — %sArea: %s", t.Code, t.Title, t.Area)
 }
@@ -306,7 +371,7 @@ func renderQuestion(task domain.Question) string {
 			lines = append(lines, fmt.Sprintf(" %d) %s", i+1, c))
 		}
 	}
-	return strings.Join(lines, "	")
+	return strings.Join(lines, "")
 }
 
 func renderFeedback(r domain.AnswerResult, task domain.Question, ans string) string {
@@ -348,5 +413,5 @@ func renderStats(s *state) string {
 		weak = []string{"No weak topics yet."}
 	}
 
-	return fmt.Sprintf("Correct: %dWrong: %dScore: %dAttempts: %d	Weak topics:	%sAreas:	%s	Topic stats:	%s", s.correct, s.wrong, s.score, len(s.attempts), strings.Join(weak, "	"), strings.Join(areas, "	"), strings.Join(topics, "	"))
+	return fmt.Sprintf("Correct: %dWrong: %dScore: %dAttempts: %dWeak topics:%sAreas:%sTopic stats:%s", s.correct, s.wrong, s.score, len(s.attempts), strings.Join(weak, ""), strings.Join(areas, ""), strings.Join(topics, ""))
 }

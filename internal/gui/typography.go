@@ -7,7 +7,7 @@ import (
 
 func NewTitleLabel(text string) *widget.Label {
 	l := widget.NewLabelWithStyle(text, fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
-	l.Wrapping = fyne.TextTruncate
+	l.Wrapping = fyne.TextWrapWord
 	return l
 }
 
